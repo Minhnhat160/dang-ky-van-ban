@@ -1,0 +1,372 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ứng dụng Đăng ký Văn bản</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f0f0; }
+    .container { max-width: 900px; margin: auto; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input, select { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
+    button { padding: 10px 20px; background-color: #007BFF; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #0056b3; }
+    #dataTable { display: block; margin-top: 20px; }
+    #stats { display: block; margin-top: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background-color: #007BFF; color: white; }
+    .expandable { cursor: pointer; background-color: #e0e0e0; }
+    .details { display: none; margin-left: 20px; }
+    .editable { cursor: pointer; }
+    .stats-section { margin-bottom: 25px; background-color: #fff; padding: 15px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .stats-section h4 { margin: 0 0 10px; color: #333; font-size: 1.2em; }
+    .stats-table th { background-color: #0056b3; }
+    .details table { width: 100%; margin-top: 5px; }
+    .details th { background-color: #6c757d; color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Nhập dữ liệu Đăng ký Văn bản</h2>
+    <form id="entryForm">
+      <div class="form-group">
+        <label for="sheet">Sheet:</label>
+        <select id="sheet" name="sheet">
+          <option value="Phân công KSV">Phân công KSV</option>
+          <option value="Báo cáo xét xử">Báo cáo xét xử</option>
+          <option value="Yêu cầu thu thập chứng cứ">Yêu cầu thu thập chứng cứ</option>
+          <option value="Giao hồ sơ">Giao hồ sơ</option>
+          <option value="Kiến nghị">Kiến nghị</option>
+          <option value="Kháng nghị">Kháng nghị</option>
+          <option value="Báo cáo án">Báo cáo án</option>
+          <option value="Phát biểu">Phát biểu</option>
+          <option value="Thay đổi KSV">Thay đổi KSV</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="stt">STT (tự động):</label>
+        <input type="text" id="stt" name="stt" readonly>
+      </div>
+      <div class="form-group">
+        <label for="thuLy">Thụ lý (dd/mm/yyyy):</label>
+        <input type="text" id="thuLy" name="thuLy" required placeholder="dd/mm/yyyy">
+      </div>
+      <div class="form-group">
+        <label for="duongSu">Đương sự:</label>
+        <input type="text" id="duongSu" name="duongSu" required>
+      </div>
+      <div class="form-group">
+        <label for="tranhChap">Tranh chap:</label>
+        <select id="tranhChap" name="tranhChap">
+          <option value="">Chọn loại tranh chap</option>
+          <option value="Tranh chap về quốc tịch Việt Nam giữa cá nhân với cá nhân">Tranh chap về quốc tịch Việt Nam giữa cá nhân với cá nhân</option>
+          <option value="Tranh chap về quyền sở hữu và các quyền khác đối với tài sản">Tranh chap về quyền sở hữu và các quyền khác đối với tài sản</option>
+          <option value="Tranh chap về giao dịch dân sự, hợp đồng dân sự">Tranh chap về giao dịch dân sự, hợp đồng dân sự</option>
+          <option value="Tranh chap về quyền sở hữu trí tuệ, chuyển giao công nghệ">Tranh chap về quyền sở hữu trí tuệ, chuyển giao công nghệ</option>
+          <option value="Tranh chap về bồi thường thiệt hại ngoài hợp đồng">Tranh chap về bồi thường thiệt hại ngoài hợp đồng</option>
+          <option value="Tranh chap về bồi thường thiệt hại do áp dụng biện pháp ngăn chặn hành chính không đúng theo quy định của pháp luật về cạnh tranh">Tranh chap về bồi thường thiệt hại do áp dụng biện pháp ngăn chặn hành chính không đúng theo quy định của pháp luật về cạnh tranh</option>
+          <option value="Tranh chap về đòi lại tài sản bị cưỡng chế để thi hành án">Tranh chap về đòi lại tài sản bị cưỡng chế để thi hành án</option>
+          <option value="Tranh chap liên quan đến hoạt động nghiệp vụ báo chí">Tranh chap liên quan đến hoạt động nghiệp vụ báo chí</option>
+          <option value="Tranh chap liên quan đến yêu cầu tuyên bố văn bản công chứng vô hiệu">Tranh chap liên quan đến yêu cầu tuyên bố văn bản công chứng vô hiệu</option>
+          <option value="Tranh chap về thừa kế">Tranh chap về thừa kế</option>
+          <option value="Tranh chap về quyền sử dụng đất và tài sản gắn liền với đất">Tranh chap về quyền sử dụng đất và tài sản gắn liền với đất</option>
+          <option value="Tranh chap về hợp đồng chuyển nhượng quyền sử dụng đất">Tranh chap về hợp đồng chuyển nhượng quyền sử dụng đất</option>
+          <option value="Tranh chap về tài sản chung trong quan hệ hôn nhân và gia đình">Tranh chap về tài sản chung trong quan hệ hôn nhân và gia đình</option>
+          <option value="Các tranh chap khác về dân sự">Các tranh chap khác về dân sự</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="ksv">KSV:</label>
+        <select id="ksv" name="ksv">
+          <option value="">Chọn KSV</option>
+          <option value="Cẩm">Cẩm</option>
+          <option value="Trang">Trang</option>
+          <option value="Cường">Cường</option>
+          <option value="Đặng Hải">Đặng Hải</option>
+          <option value="Chí Hải">Chí Hải</option>
+          <option value="Sang">Sang</option>
+          <option value="Tới">Tới</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="thamPhan">Thẩm phán:</label>
+        <select id="thamPhan" name="thamPhan">
+          <option value="">Chọn Thẩm phán</option>
+          <option value="Phan Hải">Phan Hải</option>
+          <option value="Hứa Hải">Hứa Hải</option>
+          <option value="Công">Công</option>
+          <option value="Hợp">Hợp</option>
+          <option value="Quang">Quang</option>
+          <option value="Huệ">Huệ</option>
+          <option value="Khiết">Khiết</option>
+          <option value="Phương">Phương</option>
+          <option value="Hồng Hà">Hồng Hà</option>
+          <option value="Đen">Đen</option>
+          <option value="Len">Len</option>
+          <option value="Đoan">Đoan</option>
+          <option value="Minh Út">Minh Út</option>
+          <option value="Huỳnh Hải">Huỳnh Hải</option>
+          <option value="Xô">Xô</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="ghiChu">Ghi chú:</label>
+        <input type="text" id="ghiChu" name="ghiChu">
+      </div>
+      <button type="submit">Thêm bản ghi</button>
+      <button type="button" id="saveEditBtn" style="display: none;">Lưu thay đổi</button>
+    </form>
+
+    <div id="dataTable">
+      <h3>Danh sách bản ghi</h3>
+      <table id="recordsTable">
+        <tr>
+          <th>STT</th>
+          <th>Thụ lý</th>
+          <th>Đương sự</th>
+          <th>Tranh chap</th>
+          <th>KSV</th>
+          <th>Thẩm phán</th>
+          <th>Ghi chú</th>
+          <th>Sheet</th>
+        </tr>
+      </table>
+    </div>
+
+    <div id="stats">
+      <h3>Thống kê theo Sheet</h3>
+      <div id="statsSections"></div>
+    </div>
+  </div>
+
+  <script>
+    let data = {
+      "Phân công KSV": [],
+      "Báo cáo xét xử": [],
+      "Yêu cầu thu thập chứng cứ": [],
+      "Giao hồ sơ": [],
+      "Kiến nghị": [],
+      "Kháng nghị": [],
+      "Báo cáo án": [],
+      "Phát biểu": [],
+      "Thay đổi KSV": []
+    };
+
+    let editIndex = null;
+
+    document.getElementById('entryForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const sheet = document.getElementById('sheet').value;
+      const stt = data[sheet].length + 1;
+      document.getElementById('stt').value = stt;
+
+      const entry = {
+        stt: stt,
+        thuLy: document.getElementById('thuLy').value,
+        duongSu: document.getElementById('duongSu').value,
+        tranhChap: document.getElementById('tranhChap').value,
+        ksv: document.getElementById('ksv').value,
+        thamPhan: document.getElementById('thamPhan').value,
+        ghiChu: document.getElementById('ghiChu').value,
+        sheet: sheet
+      };
+      if (editIndex !== null) {
+        data[sheet][editIndex] = entry;
+        editIndex = null;
+        document.getElementById('saveEditBtn').style.display = 'none';
+      } else {
+        data[sheet].push(entry);
+      }
+      updateRecordsTable();
+      this.reset();
+      document.getElementById('stt').value = '';
+      updateStats();
+    });
+
+    document.getElementById('sheet').addEventListener('change', function() {
+      const sheet = this.value;
+      const stt = data[sheet].length + 1;
+      document.getElementById('stt').value = stt;
+    });
+
+    function updateRecordsTable() {
+      const table = document.getElementById('recordsTable');
+      table.innerHTML = `
+        <tr>
+          <th>STT</th>
+          <th>Thụ lý</th>
+          <th>Đương sự</th>
+          <th>Tranh chap</th>
+          <th>KSV</th>
+          <th>Thẩm phán</th>
+          <th>Ghi chú</th>
+          <th>Sheet</th>
+        </tr>
+      `;
+      for (let sheet in data) {
+        data[sheet].forEach((entry, index) => {
+          const row = document.createElement('tr');
+          row.className = 'editable';
+          row.innerHTML = `
+            <td>${entry.stt}</td>
+            <td>${entry.thuLy}</td>
+            <td>${entry.duongSu}</td>
+            <td>${entry.tranhChap}</td>
+            <td>${entry.ksv}</td>
+            <td>${entry.thamPhan}</td>
+            <td>${entry.ghiChu}</td>
+            <td>${entry.sheet}</td>
+          `;
+          row.addEventListener('click', function() {
+            editIndex = index;
+            document.getElementById('sheet').value = entry.sheet;
+            document.getElementById('stt').value = entry.stt;
+            document.getElementById('thuLy').value = entry.thuLy;
+            document.getElementById('duongSu').value = entry.duongSu;
+            document.getElementById('tranhChap').value = entry.tranhChap;
+            document.getElementById('ksv').value = entry.ksv;
+            document.getElementById('thamPhan').value = entry.thamPhan;
+            document.getElementById('ghiChu').value = entry.ghiChu;
+            document.getElementById('saveEditBtn').style.display = 'inline-block';
+          });
+          table.appendChild(row);
+        });
+      }
+    }
+
+    document.getElementById('saveEditBtn').addEventListener('click', function() {
+      const sheet = document.getElementById('sheet').value;
+      if (editIndex !== null) {
+        const entry = {
+          stt: document.getElementById('stt').value,
+          thuLy: document.getElementById('thuLy').value,
+          duongSu: document.getElementById('duongSu').value,
+          tranhChap: document.getElementById('tranhChap').value,
+          ksv: document.getElementById('ksv').value,
+          thamPhan: document.getElementById('thamPhan').value,
+          ghiChu: document.getElementById('ghiChu').value,
+          sheet: sheet
+        };
+        data[sheet][editIndex] = entry;
+        editIndex = null;
+        this.style.display = 'none';
+        updateRecordsTable();
+        updateStats();
+      }
+    });
+
+    function updateStats() {
+      const statsSections = document.getElementById('statsSections');
+      statsSections.innerHTML = '';
+
+      for (let sheet in data) {
+        const section = document.createElement('div');
+        section.className = 'stats-section';
+        section.innerHTML = `<h4>${sheet}</h4><table id="statsTable_${sheet.replace(/ /g, '_')}"><tr><th>KSV</th><th>Tổng Số Vụ</th></tr></table>`;
+        const statsTable = section.querySelector(`#statsTable_${sheet.replace(/ /g, '_')}`);
+
+        const ksvStats = {};
+        data[sheet].forEach(entry => {
+          if (entry.ksv && entry.thuLy) {
+            ksvStats[entry.ksv] = ksvStats[entry.ksv] ? ksvStats[entry.ksv] + 1 : 1;
+          }
+        });
+
+        for (let ksv in ksvStats) {
+          const row = document.createElement('tr');
+          row.className = 'expandable';
+          row.innerHTML = `
+            <td>${ksv}</td>
+            <td>${ksvStats[ksv]}</td>
+          `;
+          row.addEventListener('click', function() {
+            const details = this.nextElementSibling;
+            if (details) {
+              details.style.display = details.style.display === 'none' ? 'table-row' : 'none';
+            } else {
+              const detailRow = document.createElement('tr');
+              detailRow.className = 'details';
+              const months = countCasesByMonth(data[sheet].filter(e => e.ksv === ksv));
+              detailRow.innerHTML = `
+                <td colspan="2">
+                  <table>
+                    <tr><th>Tháng</th><th>Số Vụ</th></tr>
+                    ${Object.entries(months)
+                      .map(([month, count]) => `<tr><td>Tháng ${month}</td><td>${count}</td></tr>`)
+                      .join('')}
+                  </table>
+                </td>
+              `;
+              this.parentNode.insertBefore(detailRow, this.nextSibling);
+            }
+          });
+          statsTable.appendChild(row);
+        }
+        statsSections.appendChild(section);
+      }
+    }
+
+    function countCasesByMonth(entries) {
+      const months = {};
+      entries.forEach(entry => {
+        if (entry.thuLy) {
+          const [day, monthYear] = entry.thuLy.split('/');
+          const [month, year] = monthYear.split('.').map(Number);
+          if (day && month && year) {
+            const monthKey = `${month}/${year % 100}`; // Lấy 2 chữ số cuối của năm (25 → 25)
+            months[monthKey] = (months[monthKey] || 0) + 1;
+          }
+        }
+      });
+      return months;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const initialSheet = document.getElementById('sheet').value;
+      document.getElementById('stt').value = data[initialSheet].length + 1;
+      updateStats();
+    });
+  </script>
+</body>
+</html>
